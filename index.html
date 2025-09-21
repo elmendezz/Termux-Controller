@@ -122,89 +122,71 @@
 </div>
 
 <script>
-    // Versión: 1
+    // Version: 2
     // Changelog:
-    // - Version 1: Se crea la estructura básica con HTML, CSS y JavaScript para interactuar con la API de GitHub.
-    // - Se agregaron funciones para enviar comandos y leer la salida del repositorio.
-    // - Se implementó un polling simple para obtener la salida.
+    // - Version 1: Se crea la estructura básica con HTML, CSS y JavaScript.
+    // - Version 2: Se elimina el token del código y se modifica para llamar a una función serverless.
     
-    // --- IMPORTANTE: Reemplaza estos valores con los tuyos ---
-    const GITHUB_TOKEN = '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';
+    // Aquí solo dejas el usuario y el nombre del repositorio.
     const GITHUB_USER = 'elmendezz'; 
     const GITHUB_REPO = 'Termux-Controller-Commands';
-    // -----------------------------------------------------
 
     const commandInput = document.getElementById('command-input');
     const sendButton = document.getElementById('send-button');
     const outputContainer = document.getElementById('output-container');
     const statusMessage = document.getElementById('status-message');
 
-    // Función para enviar el comando a GitHub
+    // Función para enviar el comando a la función serverless
     async function sendCommand(command) {
         statusMessage.textContent = 'Enviando comando...';
         try {
-            // 1. Obtener el SHA del archivo commands.txt para poder actualizarlo
-            const fileUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/commands.txt`;
-            const getFileResponse = await fetch(fileUrl, {
+            const response = await fetch('/api/control', {
+                method: 'POST',
                 headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-            const fileData = await getFileResponse.json();
-            const sha = fileData.sha;
-
-            // 2. Actualizar el contenido del archivo commands.txt
-            const updateResponse = await fetch(fileUrl, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    message: `Actualizando comando: ${command}`,
-                    content: btoa(command),
-                    sha: sha
+                    command: command,
+                    user: GITHUB_USER,
+                    repo: GITHUB_REPO
                 })
             });
 
-            if (updateResponse.ok) {
+            const result = await response.json();
+            if (response.ok) {
                 statusMessage.textContent = 'Comando enviado, esperando la salida...';
                 pollForOutput();
             } else {
-                statusMessage.textContent = 'Error al enviar el comando.';
+                statusMessage.textContent = `Error: ${result.message}`;
             }
 
         } catch (error) {
             console.error('Error:', error);
-            statusMessage.textContent = 'Error de conexión o de API.';
+            statusMessage.textContent = 'Error de conexión con el servidor.';
         }
     }
 
-    // Función para leer la salida del archivo output.txt
     async function getOutput() {
+        // En este caso, sigues leyendo del archivo directamente, lo que está bien.
         const fileUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/output.txt`;
         const response = await fetch(fileUrl, {
             headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3.raw' // Pide el contenido RAW
+                'Accept': 'application/vnd.github.v3.raw'
             }
         });
         const output = await response.text();
         return output;
     }
 
-    // Polling para revisar la salida cada pocos segundos
     async function pollForOutput() {
         const intervalId = setInterval(async () => {
             const output = await getOutput();
             if (output.trim() !== '') {
                 outputContainer.textContent = output;
                 statusMessage.textContent = '¡Comando ejecutado! Puedes enviar otro.';
-                clearInterval(intervalId); // Detenemos el polling
+                clearInterval(intervalId);
             }
-        }, 5000); // Revisa cada 5 segundos
+        }, 5000);
     }
 
     sendButton.addEventListener('click', () => {
@@ -213,7 +195,7 @@
             sendCommand(command);
         }
     });
-
 </script>
+
 </body>
 </html>
